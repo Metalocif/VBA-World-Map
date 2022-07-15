@@ -1,0 +1,75 @@
+Option Base 1
+
+Sub LoadMap()
+    'This is intended to be fully generic, so you can play around with the values in GroundMap and WorldMap to draw different things.
+    Dim ItemID As Integer
+    MainFilePath = ThisWorkbook.Path & "\"
+    'ThisWorkbook.Path returns the filepath to the folder that contains the workbook this macro is running from.
+    Worksheets("WorldValuesList").Activate
+    PathArray = WorksheetFunction.Transpose(Range(Cells(1, 2), Cells(1, 2).End(xlDown)))
+    For i = LBound(PathArray) To UBound(PathArray)
+        PathArray(i) = MainFilePath & Replace(PathArray(i), " ", "") & ".png"
+    Next i
+    'Makes a valid file path from a name. We remove spaces as a security if people add values.
+    'This results in an array containing the file paths to all listed objects.
+    Application.ScreenUpdating = False
+    'We turn off screen updating to make map creation run faster.
+    Call ClearShapes
+    Worksheets("PlayArea").Cells.Interior.Color = xlNone
+    'Remove colors from all cells.
+    Worksheets("GroundMap").Activate
+    GroundArray = [A1].CurrentRegion
+    'Get the ground values data.
+    Worksheets("GroundValuesList").Activate
+    GroundToGraphics = [A1].CurrentRegion
+    'Get the data needed to convert ground values to actual fills.
+    Worksheets("WorldMap").Activate
+    MapArray = Range(Cells(1, 1), Cells(UBound(GroundArray, 1), UBound(GroundArray, 2)))
+    'Get the objects from the MapArray. Since we don't have an object on every tile, we use the size of the ground map.
+    Worksheets("PlayArea").Activate
+    For i = 1 To UBound(GroundArray, 1)
+        Rows(i).RowHeight = 12
+    Next i
+    For j = 1 To UBound(GroundArray, 2)
+        Columns(j).ColumnWidth = 2
+    Next j
+    For i = 1 To UBound(MapArray, 1)
+        For j = 1 To UBound(MapArray, 2)
+            Cells(i, j).Interior.Pattern = GroundToGraphics(GroundArray(i, j), 2)
+            Cells(i, j).Interior.PatternThemeColor = GroundToGraphics(GroundArray(i, j), 3)
+            Cells(i, j).Interior.ThemeColor = GroundToGraphics(GroundArray(i, j), 4)
+            Cells(i, j).Interior.TintAndShade = GroundToGraphics(GroundArray(i, j), 5)
+            Cells(i, j).Interior.PatternTintAndShade = GroundToGraphics(GroundArray(i, j), 6)
+            'Use the data from GroundArray to make patterns.
+            ItemID = MapArray(i, j)
+            If ItemID <> 0 Then Call DrawToCell(PathArray(ItemID), i, j, GetWidthFromID(ItemID), GetHeightFromID(ItemID))
+            'We draw a shape to a cell by stating the path to the image, coordinates of the cell, and width/height multipliers if any.
+        Next j
+    Next i
+    Application.ScreenUpdating = True
+End Sub
+
+Sub ClearShapes()
+    For Each Shape In Worksheets("PlayArea").Shapes
+        Shape.Delete
+    Next Shape
+End Sub
+
+Sub DrawToCell(FilePath, i, j, Optional WidthMultiplier = 1, Optional HeightMultiplier = 1)
+    Dim Shp As Shape
+    'We add width and height on the left and the right of the shape to be centered.
+    'So we have to add half left and half right, by subtracting the value to its starting positions.
+    WidthToAdd = Cells(i, j).Width * (WidthMultiplier - 1) / 2
+    HeightToAdd = Cells(i, j).Height * (HeightMultiplier - 1) / 2
+    Set Shp = Worksheets("PlayArea").Shapes.AddPicture(FilePath, msoFalse, msoTrue, Cells(i, j).Left - WidthToAdd, Cells(i, j).Top - HeightToAdd, Cells(i, j).Width + WidthToAdd, Cells(i, j).Height + HeightToAdd)
+End Sub
+
+Function GetWidthFromID(ID As Integer) As Double
+    'We make trees twice as wide and thrice as tall. Nothing else is affected.
+    If ID = 1 Then GetWidthFromID = 2 Else: GetWidthFromID = 1
+End Function
+
+Function GetHeightFromID(ID As Integer) As Double
+    If ID = 1 Then GetHeightFromID = 3 Else: GetHeightFromID = 1
+End Function
+
